@@ -6,7 +6,7 @@
 - record for memory
 
 ### For me
-Writing down each exampel with my own hands helps me remember it better, even if it's actually the same as the source code.
+Writing down each example with my own hands helps me remember it better, even if it's actually the same as the source code.
 
 ### Contents
 - Chapter 1.UNIX System Overview
