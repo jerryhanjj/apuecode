@@ -29,7 +29,7 @@
 ### 3.3 函数 open 和 openat
 
 - open
-- openat
+- openat  
 `openat`可以让线程使用相对路径名打开不同的工作目录
 
 ```c
