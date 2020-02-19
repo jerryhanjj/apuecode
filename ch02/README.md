@@ -10,7 +10,7 @@
 #endif
 ```
 
-**2.2 基本系统数据类型**
+**2.2 基本系统数据类型**  
 [查找系统数据类型，以 clock_t 为例](https://blog.csdn.net/jerryhanjj/article/details/104382421 "查找系统数据类型，以 clock_t 为例")
 
 **2.3 如果`sysconf`返回的值表示`OPEN_MAX`是未确定的，或者将`LONG_MAX`作为`OPEN_MAX`值来报告时，使用`getrlimit`得到每个进程的最大打开文件描述符数。**
