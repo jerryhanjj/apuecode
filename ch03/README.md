@@ -29,7 +29,7 @@
 ### 3.3 函数 open 和 openat
 
 - open
-- openat  
+- openat
 `openat`可以让线程使用相对路径名打开不同的工作目录
 
 ```c
@@ -44,7 +44,7 @@ int openat(int dirfd, const char *pathname, int flags);
 int openat(int dirfd, const char *pathname, int flags, mode_t mode);
 ```
 
-文件打开方式参数  
+文件打开方式参数
 在必选参数中**选择一个且只能选择一**个，可与可选项“或”运算构成参数，例如：
 ```c
 open(pathname, O_RDWR|O_APPEND, ...)
@@ -97,20 +97,20 @@ lseek根据参数whence的值来设置文件的偏移量
 ```shell
 $ ./canseek < /etc/passwd
 seek ok
-$ ./canseek < /etc/passwd | ./canseek   
+$ ./canseek < /etc/passwd | ./canseek
 can't seek
 ```
 
 - seekhole.c
 
 ```shell
-$ ./seekhole  
+$ ./seekhole
 
-$ ls -l file.hole 
+$ ls -l file.hole
 -rw-r--r-- 1 tf tf 16394 2月  19 19:56 file.hole
 # 显示文件大小为16394
 
-$ od -c file.hole 
+$ od -c file.hole
 0000000   a   b   c   d   e   f   g   h   i   j  \0  \0  \0  \0  \0  \0
 0000020  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0  \0
 *
@@ -120,6 +120,186 @@ $ od -c file.hole
 每行开始的八进制数表示字节的偏移量，`0040012`转换成十进制便是**16394**
 
 ### 3.7 函数 read
+```c
+#include <unistd.h>
+ssize_t read(int fd, void *buf, size_t count);
+```
+
+### 3.8 函数 write
+```c
+#include <unistd.h>
+ssize_t write(int fd, const void *buf, size_t count);
+```
+返回值通常与参数`count`相同，否则表示出错。对于普通文件，写操作从文件当前偏移量开始，默认`offset`是**0**，如果打开文件是指定`O_APPEND`选项，则偏移量在文件结尾处。写成功之后，偏移量增加实际写的字节数。
+
+### 3.9 I/O的效率
+- mycat.c
+
+```c
+$ ./mycat
+ls
+ls
+haha
+haha
+
+$ ./mycat > data
+ls
+hello
+$ cat data
+ls
+hello
+
+$ ./mycat < data > data.copy
+$ cat data.copy
+ls
+hello
+```
+
+### 3.10 文件共享
+**整节反复阅读**
+
+### 3.11 原子操作
+- read
+- write
+
+在多进程写同一个文件时，如果没有保证原子性（锁），则会发生意料之外的结果。
+- pread
+- pwrite
+
+`pread`是`read`的原子性操作，相当于无法中断的`lseek`和`read`操作，同时不更新文件偏移量。`pwrite`类似。
+
+### 3.12 函数dup和dup2
+复制一个现有的文件描述符，另一种方式是使用`fcntl`函数。
+```C
+#include <unistd.h>
+
+int dup(int oldfd);
+int dup2(int oldfd, int newfd);
+```
+dup2(fd, fd2)**不完全等效于**
+```C
+close(fd2)
+fcntl(fd, F_DUPFD, fd2)
+```
+dup2是原子操作，而后者不是，在close和fcntl之间程序可能挂起，执行其他有关文件的操作。
+
+### 3.13 函数sync、fsync、fdatasync
+```c
+#include <unistd.h>
+
+int fsync(int fd);
+int fdatasync(int fd);
+void sync(void);
+```
+**区别：**  
+- sync 不等待写磁盘操作结束
+- fdatasync 只影响文件数据部分，fsync 还包括更新文件属性
+
+### 3.14 函数fcntl
+操作文件描述符  
+**Linux 中 通过 fnctl 设置 O_SYNC 似乎不起作用，但是 open 时指定 O_SYNC 参数有用。**
+```c
+#include <unistd.h>
+#include <fcntl.h>
+
+int fcntl(int fd, int cmd, ... /* arg */ );
+```
+|      CMD参数       |                                                  描述                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+|     F_DUPFD     | 复制文件描述符。新文件描述符作为函数返回值返回，与 fd 共享同一文件表项，清除 FD_CLOEXEC 文件描述符标志 |
+| F_DUPFD_CLOEXEC |                                  复制文件描述符，设置 FD_CLOEXEC 标志                                  |
+|     F_GETFD     |                                   返回文件描述符标志，如 FD_CLOEXEC                                    |
+|     F_SETFD     |                                  设置 fd 的描述符标志，如 FD_CLOEXEC                                   |
+|     F_GETFL     |                            获取 fd 的文件状态标志，如 O_RDONLY,O_WRONLY...                             |
+|     F_SETFL     |            设置文件状态标志，如 O_APPEND,O_NONBLOCK,O_SYNC,O_DSYNC,O_RSYNC,O_FSYNC,O_ASYNC             |
+
+
+**O_ACCMODE：**
+这个宏作为一个掩码以与文件状态标识值做AND位运算，产生一个表示文件访问模式的值。这模式将是`O_RDONLY`, `O_WRONLY`, 或 `O_RDWR`（在GNU系统中，也可能是零，不包括 O_EXEC 位）。
+- O_ACCMODE：**0011**
+- O_RDONLY：**00**
+- O_WRONLY：**01**
+- O_RDWR：**10**
+
+通过“与”运算**取出flag中的低两位**
+```
+（val & O_ACCMODE）
+```
+
+**功能测试宏：**  
+[UNIX功能测试宏](https://blog.csdn.net/jerryhanjj/article/details/104417753 "UNIX功能测试宏")
+
+- fileflag.c
+
+```shell
+$ ./fileflag 0
+read write, append
+
+$ ./fileflag 1
+read write, append
+
+$ ./fileflag 0 < /dev/tty	# 标准输入0重定向为文件tty的描述符
+read only
+
+$ ./fileflag 1 > temp.foo	# 标准输出1 重定向为文件temp.foo，即把printf输出打印在文件temp.foo中
+
+$ cat temp.foo 
+write only
+
+$ ./fileflag 0 1>temp.foo 	# 执行命令 ./fileflag 0 并把输出定向到文件temp.foo中
+
+$ cat temp.foo 
+read write, append
+
+$ ./fileflag 5 
+fcntl error for fd 5: Bad file descriptor
+
+$ ./fileflag 5 2>>temp.foo	# 命令 ./fileflag 5 的标准输出 >> 追加到文件中
+
+$ cat temp.foo 
+read write, append
+fcntl error for fd 5: Bad file descriptor
+
+$ ./fileflag 5 5<>temp.foo	# 以可读写的方式打开文件temp.foo，并把文件描述符作为5号描述符执行命令 ./fileflag 5
+read write
+```
+**生成测试用大文件：**
+[Linux 测试用大文件生成](https://blog.csdn.net/jerryhanjj/article/details/104419485 "Linux 测试用大文件生成")
+
+### 3.15 函数 ioctl
+```c
+#include <sys/ioctl.h>
+
+int ioctl(int fd, unsigned long request, ...);
+```
+
+### 3.16 /dev/fd
+描述符文件存放目录
+```shell
+fd = open("/dev/fd/0", mode);
+# 等效于
+fd = dup(0);	# 描述符0 和 fd 共享同一文件表项
+```
+系统标准文件描述符（0，1，2...)映射成指向底层物理文件的符号链接，即使上述代码成功调用，也不能对`fd`进行操作。  
+
+### 习题
+
+**3.1 所有磁盘I/O都要经过内核块缓冲区。“不带缓冲I/O”指的是在用户进程中例如`read`和`write`这两个函数不会自动缓冲，每执行一次就要进行一次系统调用。**
+
+3.2 
+
+**3.3 共享同一个文件表项的`fd`，`F_SETFD`只作用于当前`fd`，而`F_SETFL`作用于指向同一个文件的所有`fd`**
+
+**3.4 如果fd是1，执行三次后，描述符0，1，2都指向1，如果fd是3，则0，1，2，3都指向1，需要关闭3（为什么？？？）**
+3.5 
+**3.6 以O_APPEND方式打开文件，仍然可用lseek和read函数读取文件任意一个位置的内容，但是write只能在文件尾，在write之前文件偏移量会自动设置为文件尾。**
+
+
+
+
+
+
+
 
 
 
