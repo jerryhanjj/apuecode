@@ -1,4 +1,4 @@
-OBJ=canseek seekhole mycat fileflag
+OBJ=canseek seekhole mycat fileflag e32 e33 e35 e36
 CC=gcc
 CFLAGS=-lapue -Wall
 LIBAPUE=/usr/lib/libapue.a

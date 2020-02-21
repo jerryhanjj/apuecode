@@ -5,7 +5,7 @@
 #include <apueerror.h>
 #include "setfcntl.c"
 
-//void set_fl(int fd, int flags);
+void set_fl(int fd, int flags);
 
 #define BUFFSIZE 4096
 
@@ -16,11 +16,11 @@ int main(void)
 
 	//set_fl(STDOUT_FILENO, O_SYNC);
 	
-	//int fd = open("2.dat", O_WRONLY|O_SYNC|O_CREAT);
+	int fd = open("2.dat", O_WRONLY|O_SYNC|O_CREAT);
 	
 	while((n = read(STDIN_FILENO, buf, BUFFSIZE)) > 0)
 	{
-		if((write(STDOUT_FILENO, buf, n)) != n)
+		if((write(fd/*STDOUT_FILENO*/, buf, n)) != n)		// 使用open时，STDOUT_FILENO 改成 fd
 		{
 			err_sys("write error");
 		}
