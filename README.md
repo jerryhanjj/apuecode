@@ -13,6 +13,7 @@ The third edition of this book has some differences between the two before. It's
 - [build code and enviornment](https://github.com/jerryhanjj/apuecode/tree/master/apue.3e)
 
 ### Contents
-- [Chapter 1.UNIX System Overview](https://github.com/jerryhanjj/apuecode/tree/master/ch01)
-- [Chapter 2.UNIX Standardization and Implementations](https://github.com/jerryhanjj/apuecode/tree/master/ch02)
+- [Chapter 1. UNIX System Overview](https://github.com/jerryhanjj/apuecode/tree/master/ch01)
+- [Chapter 2. UNIX Standardization and Implementations](https://github.com/jerryhanjj/apuecode/tree/master/ch02)
+- [Chapter 3. File I/O](https://github.com/jerryhanjj/apuecode/tree/master/ch03)
 
