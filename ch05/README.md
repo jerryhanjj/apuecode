@@ -165,6 +165,7 @@ FILE *freopen(const char *pathname, const char *mode, FILE *stream);
 ```
 
 **参数**
+
 |      mode      |                                   描述                                    |             open(2)对应标志             |
 | -------------- | ------------------------------------------------------------------------- | --------------------------------------- |
 |     r / rb     |                      **读方式**，流指向文件**开始位置**                       |                O_RDONLY                 |
@@ -177,14 +178,23 @@ FILE *freopen(const char *pathname, const char *mode, FILE *stream);
 打开**二进制文件**时使用 `b` ，在区分**文本文件**和**二进制文件**的系统中可以使得文件以合适的方式打开。但是在 `UNIX` 和 `Linux` 等遵循 `POSIX` 的系统中，对两种文件不进行区分，`b` 都被自动忽略。如果为了良好的可移植，最好加上 `b` 。
 
 **返回值**
+
 - 成功：返回指向文件的 `FILE` 对象指针
 - 出错：返回 `NULL`
 
 #### `fopen`
+
 打开 `pathname` 指向的一个文件，并与一个流关联
 
 #### `fdopen`
+
 将一个流关联到**已经存在**的文件描述符 `fd` ，**打开模式（`mode`）必须与文件描述符 fd 的 open 模式相匹配**，流的定为与 `fd` 的偏移量相同，错误和文件结束标记被清除。`w` 或 `w+` 打开的文件也**不被截断**，文件描述符不会被复制(`dup`)，在关闭由 `fdopen` 创建的流时，被关闭文件描述符。对共享内存对象实施 `fdopen` 的结果是未定义的。
+
+**通常用于创建管道和网络通信通道函数返回的描述符**，因为这些特殊的文件不能用标准I/O函数 `foen` 打开。
+
+#### `freopen`
+
+在一个指定的流上打开一个指定的文件，如果该流已经打开，则先关闭该流；若该流已经定向，则使用 `freopen` 清除该定向。**一般用于将一个指定的文件打开为一个预定的流：标准输入、输出、错误，即改变与标准文本流 (stderr, stdin, 或 stdout) 相关联的文件**
 
 当以**读和写**类型打开一个文件时，具有以下限制：
 - 如果中间没有 fflush、fseek、fsetpos、rewind，则在输出的后面不能直接跟随输入。
@@ -211,4 +221,69 @@ int fclose(FILE *stream);
 冲洗缓冲区中的输出数据。缓冲区中的任何输入数据被丢弃。如果标准I/O库已经为该流自动分配了一个缓冲区，则释放此缓冲区。
 
 当一个进程正常终止时，则所有带未写缓冲数据的标准I/O流都被冲洗，所有打开的标准I/O流都被关闭。
+
+### 5.6 读和写流
+**对流进行读写的三种 <u>非格式化</u> I/O：**
+- 单字符I/O。一次读或写一个字符，如果带缓冲，标准I/O函数处理缓冲
+- 每次一行I/O。一次读或写一行，使用 fgets 和 fputs 。每行以一个换行符终止。
+- 直接I/O。一次读或写一个对象（结构）。fread 和 fwrite 函数支持此类型。
+
+#### 输入函数
+以下3个函数可用于一次读一个字符
+```c
+#include <stdio.h>
+int fgetc(FILE *stream);
+int getc(FILE *stream);
+int getchar(void);
+int ungetc(int c, FILE *stream);
+```
+
+- `getchar` 等同于 `getc(stdin)`
+
+- `getc` 可被实现为宏，`fgetc` 不能实现为宏
+  - `getc` 参数不能是表达式，可能被多次计算
+  - `fgetc` 一定是一个函数，可以得到地址。允许将 `fgetc` 作为一个参数传给另一个函数
+  - `fgetc` 调用时间比 `getc` 长。（函数 > 宏）
+
+- `ungetc` 把读出来的字符，压送（push）回流（**缓冲区**）中。
+  - 压回的字符在**读出的顺序与压回时相反**。
+  - 一次 **push back** 一个字符。不一定是上次读到的字符。
+  - 不能会送 EOF
+  - 到达文件尾端时，仍可以会送一个字符。下次读则返回字符，再读 返回 EOF
+  - 成功调用则清除流中的文件结束标识符
+
+**返回值**
+- **`fgetc/getc/getchar`**
+  - 成功：返回字符 `int` 值
+  - 失败：`EOF` (**文件尾、出错**)
+- **`ungetc`**
+  - 成功：返回 `c`
+  - 失败：返回`EOF`（出错）
+
+**出错、到达文件尾端，返回同样的值。调用 `ferror` 或 `feof` 区分。**
+```c
+#include <stdio.h>
+void clearerr(FILE *stream);
+int feof(FILE *stream);
+int ferror(FILE *stream);
+int fileno(FILE *stream);
+```
+
+- `clearerr` 清除 `FILE` 对象中**出错标志**和**文件结束标志**
+- `feof` 测试 `stream` 中文件结束标志，如果已设置，返回**非0**，否则返回0
+- `ferror` 测试 `stream` 中的错误标记，如果已设置，返回**非0**，否则返回0
+- `fileno` 检测 `stream` ，返回文件描述符的 `int` 值
+
+#### 输出函数
+```c
+#include <stdio.h>
+int fputc(int c, FILE *stream);
+int fputs(const char *s, FILE *stream);
+int putc(int c, FILE *stream);
+int putchar(int c);
+int puts(const char *s);
+```
+
+- `putchar` 等同于` putc(c,stdout)`
+- `putc` 可被实现为宏，`fputc` 不能
 
