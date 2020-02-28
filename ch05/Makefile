@@ -1,4 +1,4 @@
-OBJ=getcputc fgetsfputs buf mkstemp tempfiles
+OBJ=getcputc fgetsfputs buf mkstemp tempfiles memstr memstr-test
 CC=gcc
 CFLAGS=-lapue -Wall
 all:$(OBJ)
