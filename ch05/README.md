@@ -464,7 +464,7 @@ FILE *tmpfile(void);
 
 - `tmpnam`
 
-函数产生一个与现有文件名不同的一个有效路径名字符串。每次调用它时，都产生一个不同的路劲名，最多调用次数是 `TMP_MAX` 。 `TMP_MAX` 定义在 `<stdio.h>` 中。在 SUS(single UNIX Specification) 中已被弃用。
+函数产生一个与现有文件名不同的一个有效路径名字符串。每次调用它时，都产生一个不同的路劲名，最多调用次数是 `TMP_MAX` 。 `TMP_MAX` 定义在 `<stdio.h>` 中。**在 SUS(single UNIX Specification) 中已被弃用。**
 
 若 `s` 是 `null` ，则所产生的的路径名存放在一个静态区中，指向该静态区的指针作为函数值返回。后续调用 `tmpnam` 时，重写该静态区（应当保存路径名的副本，而不是指针的副本）。
 
@@ -497,7 +497,7 @@ int mkstemp(char *template);
 
 - `mkstemp`
 
-函数创建一个唯一名字的文件，**临时文件不会自动删除**。如果希望从文件系统命名空间中删除该文件，必须自己对它解除链接。
+函数创建一个唯一名字的文件，**临时文件不会自动删除**。如果希望从文件系统命名空间中删除该文件，必须自己对它解除链接（`unlink`）。
 
 **注意：**
 
@@ -509,7 +509,7 @@ char good_template[] = "/tmp/dirXXXXXX";
 char * bad_template = "/tmp/dirXXXXXX";
 ```
 
-- `mkstemp`
+- `mkstemp.c`
 ```shell
 $./a
 trying to creat first temp file...
@@ -520,4 +520,114 @@ trying to creat second temp file...
 ```
 
 2. 使用 `tmpnam` 和 `tempnam` 时，在返回路径名和用该路径名创建文件之间存在时间窗口，在这个窗口中，另一进程可以用相同的名字创建文件。因此应该使用 `tmpfile` 和 `mkstemp` 函数。
+
+### 5.14 内存流
+内存流，即**标准I/O流**，虽然使用 `FILE` 指针进行访问，但其实并没有底层文件，都是通过在**缓冲区与主存**之间来回传送字节来完成的。更适用于字符串操作。
+
+有 3 个函数可用于内存流的创建。
+- `fmemopen`
+```c
+#include <stdio.h>
+FILE *fmemopen(void *buf, size_t size, const char *mode);
+                # 返回值：成功，返回流指针；失败，返回 NULL
+```
+
+- `fmemopen` 函数允许**调用者提供缓冲区**用于内存流。
+- `buf` 指向缓冲区开始的位置
+- `size` 制定了缓冲区大小的字节数
+- 如果 `buf` 为空，由 `fmemopen` 函数分配 `size` 字节的缓冲区，此时，当流关闭时缓冲区被释放
+
+`type` 参数控制如何使用流。参数与标准I/O流的 `type` 参数取值有些微小差别。
+
+|       type       |                   说明                   |
+| ---------------- | ---------------------------------------- |
+|     r 或 rb      |                为读而打开                |
+|     w 或 wb      |                为写而打开                |
+|     a 或 ab      |   追加；为在第一个 null 字节处写而打开   |
+| r+ 或 r+b 或 rb+ |               为读和写打开               |
+| w+ 或 w+b 或 wb+ |       把文件截断至 0，为读和写打开       |
+| a+ 或 a+b 或 ab+ | 追加；为在第一个 null 字节处读和写而打开 |
+
+**注意：**
+1. **以追加写方式打开内存流时**，当前文件位置设为缓冲区中的第一个 `null` 字节。如果缓冲区中不存在 `null` 字节，则当前位置设置为缓冲区结尾的后一个字节。**如果不是以追加写方式打开流，当前位置设置为缓冲区开始的位置**。内存流不适合存储二进制数据（二进制数据在数据尾端之前可能包含多个 `null` 字节）。
+2. 如果 `buf` 是一个 `null` 指针，打开流进行读或写都没有任何意义。缓冲区由 `fmemopen` 分配，无法找到其地址。
+3. **增加流缓冲区数据量和调用 `fclose`、`fflush`、 `fseek`、 `fseeko` 及 `fsetpos` 时会在当前位置写入一个 `null` 字节。**
+
+- `memstr.c`
+```shell
+initial buffer contents:        # buf 为空？？？ why??
+buf+0 =     # 从这里看出 fmemopen 以 w+ 方式打开时，把 buf[0] 置为 null ('\0')， 所以打印空字符
+buf+1 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa   # buf[1] 开始都为 a
+
+before flush:
+# 调用 fflush，添加 null
+after fflush: hello, world
+buf+12 =    # fflush 把 hello world 后面一个字节置为 null('\0')
+buf+13 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+len of string in buf = 12
+
+after fseek: bbbbbbbbbbbbhello, world
+buf+24 =
+buf+25 = bbbbbbbbbbbbbbbbbbbbb
+len of string in buf = 24
+
+after fseek: bbbbbbbbbbbbbbbbbbbbbbbbhello, world
+buf+24 = hello, world
+buf+25 = ello, world
+len of string in buf = 36
+# 调用 fclose ，添加 null
+after flose: hello, worldcccccccccccccccccccccccccccccccccc # 并没有添加 null Why???
+len of string in buf = 46
+```
+
+**NULL追加策略：**
+
+如上**第 3 点**所述，但是在上面测试中调用 `fclose` 并没有在 `hello, world` 后面添加 `null` 。原因是什么？？？
+
+**不满足第3点中增加流缓冲区数据量**。通过 `strlen(buf)` 判断当前缓冲区长度，`seek` 位置在缓冲区开始处，往缓冲区写入 `hello, world` 时，会覆盖 `buf` 中原有的前12字节数据，但并不会增加 `strlen(buf)` ，所以不会添加 `null` 。如果 `seek` 位置在 `buf` 尾部（即第一个 `'\0'` 处），写入数据则会增加 `strlen(buf)` 长度，此时，自动添加 `null` 。
+
+例如，在 `fprintf` 时往缓冲区写入一个比 `hello, world` 更长的字符串时，就会在尾部自动添加 `null` 。
+- memstr-test.c
+
+```c
+# 修改 fprintf 写入的字符串
+
+memset(buf, 'c', BSZ-2);
+buf[BSZ-2] = '\0';
+buf[BSZ-1] = 'X';
+fprintf(fp, "hello, world! I'm Daniel.");
+fclose(fp);
+printf("after flose: %s\n", buf);
+printf("len of string in buf = %ld\n\n", (long)strlen(buf));
+```
+
+运行结果
+```shell
+initial buffer contents:
+buf+0 =
+buf+1 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+before flush:
+after fflush: hello, world
+buf+12 =
+buf+13 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+len of string in buf = 12
+
+after fseek: bbbbbbbbbbbbhello, world
+buf+24 =
+buf+25 = bbbbbbbbbbbbbbbbbbbbb
+len of string in buf = 24
+
+# 在字符串尾部添加了 null
+after flose: hello, world! I'm Daniel.
+len of string in buf = 25
+```
+
+### 5.15 标准I/O的替代软件
+
+使用 `fgets` 和 `fputs` 时，需要复制两次数据：
+- 内核、标准I/O缓冲区之间（调用read，write）
+- 标准I/O缓冲区和用户程序中的行缓冲之间
+
+快速I/O 不是复制数据，而是返回指向该缓冲行的指针，提升了效率。
 
