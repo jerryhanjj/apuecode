@@ -94,6 +94,7 @@ lseek根据参数whence的值来设置文件的偏移量
 | SEEK_END | 文件长度加offset，offset可正可负 |
 
 如果fd指向管道、FIFO或网络套接字，lseek返回-1，将errno设置为ESPIPE
+
 - canseek.c
 
 ```shell
@@ -279,6 +280,7 @@ read write
 **Linux 中 通过 fnctl 设置 O_SYNC 似乎不起作用，但是 open 时指定 O_SYNC 参数有用。**
 - setfcntl
 - 修改 mycat.c，使用 set_fl 或者 open
+
 ```shell
 # 生成100M的测试文件
 $ dd if=/dev/zero of=test.file bs=1M count=100
@@ -322,6 +324,7 @@ fd = dup(0);	# 描述符0 和 fd 共享同一文件表项
 **3.2 实现与dup2相同的功能，且不使用fnctl**
 
 - e32.c
+
 ```shell
 $ ./e32
 Usage: <fd>
